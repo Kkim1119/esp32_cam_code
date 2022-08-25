@@ -25,7 +25,17 @@ def make_data_pool(img,rgb):
 #----------------------------------------------------
 def give_robot_coordinate(url):
     img = open('1600x1200.jpg', 'wb')
-    img.write(urllib.request.urlopen(url).read())
+    #img.write(urllib.request.urlopen(url).read())
+    request_obj = urllib.request.urlopen(url)
+    while True:
+        try:
+            img.write(request_obj.read())
+        except http.client.IncompleteRead:
+            print("avoided exception")
+            continue
+        else:
+            break
+
     img.close()
 
     robot_img = PIL.Image.open("1600x1200.jpg")               # Identifies and opens the image given during function call
