@@ -1,5 +1,6 @@
 from PIL import Image, ImageDraw
 import PIL
+import urllib.request
 
 def make_data_pool(img,rgb):
     robot_img = PIL.Image.open(img)         #Identifies and opens the image given during function call
@@ -22,16 +23,20 @@ def make_data_pool(img,rgb):
     return specific_data_pool
 
 #----------------------------------------------------
-def give_robot_coordinate(img):
-    robot_img = PIL.Image.open(img)  # Identifies and opens the image given during function call
-    px = robot_img.load()  # Creates variable that holds pixel value and loads the image
-    data_pool = list(robot_img.getdata())  # Parses through every pixel in image and stores RGB values in a list that it creates
+def give_robot_coordinate(url):
+    img = open('1600x1200.jpg', 'wb')
+    img.write(urllib.request.urlopen(url).read())
+    img.close()
+
+    robot_img = PIL.Image.open("1600x1200.jpg")               # Identifies and opens the image given during function call
+    px = robot_img.load()                                     # Creates variable that holds pixel value and loads the image
+    data_pool = list(robot_img.getdata())                     # Parses through every pixel in image and stores RGB values in a list that it creates
     pixel_series_number = 0
 
     DATA_POOL_SIZE = len(data_pool)
 
     for i in range(DATA_POOL_SIZE):
-        if (data_pool[i][0] > 175 and data_pool[i][1] < 150 and data_pool[i][2] < 200):
+        if (data_pool[i][0] > 201 and data_pool[i][1] < 128 and data_pool[i][2] < 170):
             pixel_series_number = i
             break;
 
@@ -50,10 +55,10 @@ def give_robot_coordinate(img):
 
 print("start code")
 
-data_list = make_data_pool("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_1.jpeg", 0)
+#data_list = make_data_pool("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_1.jpeg", 0)
 
-print(give_robot_coordinate("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_4.jpeg"))
+print(give_robot_coordinate("http://192.168.0.36/1600x1200.jpg"))
 
-with open("rgb_values.txt", "w") as f:
-    print(data_list, file=f)
-    f.close()
+#with open("rgb_values.txt", "w") as f:
+    #print(data_list, file=f)
+    #f.close()
