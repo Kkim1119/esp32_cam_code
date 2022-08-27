@@ -123,9 +123,9 @@ def show_robot_direction(img):
     if(init_x<new_x):
         if(init_y>new_y):
             degree += 270
-        else:
+        elif(init_y<new_y):
             degree += 180
-    else:
+    elif(init_x>new_x):
         if(init_y<new_y):
             degree += 90
 
@@ -161,7 +161,7 @@ print("start code")
 #print(give_robot_coordinate("http://192.168.0.36/1600x1200.jpg"))
 
 #get_robot_coord()
-show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
+#show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
 
 #data_list = make_data_pool("/Users/kibumkim/Documents/esp32_cam_code/1600x1200.jpg", 0)
 #with open("rgb_values.txt", "w") as f:
@@ -170,21 +170,34 @@ show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_directi
 
 
 #============== Open COM port ==================
-#serialPort = serial.Serial(
-    #port="/dev/cu.usbserial-DN012CUI", baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
-#)
-#serialString = ""  # Used to hold data coming over UART
-#print("Open serial port")
-#while 1:
-    # Wait until there is data waiting in the serial buffer
-    #if serialPort.in_waiting > 0:
+def sendData(data):
+    #data += " "
+    serialPort.write(data.encode())
 
-        # Read data out of the buffer until a carraige return / new line is found
-        #serialString = serialPort.readline()
+global serialPort
 
-        # Print the contents of the serial data
-        #try:
-            #cmd = serialString.decode("Ascii")
-            #print(cmd)
-        #except:
-            #pass
+serialPort = serial.Serial(
+    port="/dev/cu.usbserial-DN012CUI", baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
+)
+serialString = ""  # Used to hold data coming over UART
+
+#1,5,1,7,0,0,3,0,0,5,0,0,0,6,0,0,E,4
+
+print("Open serial port")
+
+while 1:
+    #Wait until there is data waiting in the serial buffer
+    if serialPort.in_waiting > 0:
+
+        #Read data out of the buffer until a carraige return / new line is found
+        serialString = serialPort.readline()
+
+        #Print the contents of the serial data
+        try:
+            cmd = serialString.decode("Ascii")
+            if(cmd=="communication\r\n"):
+                sendData("1517003005000600228")
+
+            print(cmd)
+        except:
+            pass
