@@ -181,8 +181,6 @@ serialPort = serial.Serial(
 )
 serialString = ""  # Used to hold data coming over UART
 
-#1,5,1,7,0,0,3,0,0,5,0,0,0,6,0,0,E,4
-
 print("Open serial port")
 
 while 1:
@@ -196,7 +194,7 @@ while 1:
         try:
             cmd = serialString.decode("Ascii")
             if(cmd=="communication\r\n"):
-                sendData("1517003005000600228")
+                sendData("010514001201F4025888")
 
             print(cmd)
         except:
