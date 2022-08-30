@@ -6,7 +6,7 @@ import serial
 import time
 import math
 
-def make_data_pool(img,rgb):
+def make_data_pool(img,rgb):                #Creates the RGB data pool in order to find the range of pixel values that match with robot hood only
     robot_img = PIL.Image.open(img)         #Identifies and opens the image given during function call
     robot_img.load()                        #Creates variable that holds pixel value and loads the image
     data_pool = list(robot_img.getdata())   #Parses through every pixel in image and stores RGB values in a list that it creates
@@ -27,7 +27,7 @@ def make_data_pool(img,rgb):
     return specific_data_pool
 
 #----------------------------------------------------
-def give_robot_coordinate(url):
+def give_robot_coordinate(url):                             #Takes a photo image of the robot and environment and gives robot pixel coordinate(x-max:1600, y-max: 1200)
     #img.write(urllib.request.urlopen(url).read())
     request_obj = urllib.request.urlopen(url)
     while True:
@@ -89,15 +89,17 @@ def give_image_robot_coords(img):                 #For testing the direction lin
 
     x_and_y.append(int(x_coordinate))
     x_and_y.append(int(y_coordinate))
-    #-----Validation process code--------------------
+
+
+    return x_and_y
+
+#-----Validation process code--------------------
     #px[x_coordinate, y_coordinate] = (0,0,255)
 
     #robot_img.convert("RGB")
     #robot_img.save("robot_location_1.jpg")
-
-    return x_and_y
 #----------------------------------------------------
-def show_robot_direction(img):
+def show_robot_direction(img):              #compares the coordinates of the robot before and after moving, returns degrees of rotation of robot(starting at initial position)
     initial_x_y = give_image_robot_coords("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
     new_x_y = give_image_robot_coords("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_1.jpeg")
 
@@ -108,17 +110,20 @@ def show_robot_direction(img):
 
     delta_x = new_x - init_x
     delta_y = new_y - init_y
-    robot_img = PIL.Image.open(img)  # Identifies and opens the image given during function call
-    px = robot_img.load()
+    #robot_img = PIL.Image.open(img)  # Identifies and opens the image given during function call
+    #px = robot_img.load()
 
-    draw = ImageDraw.Draw(robot_img)
+    #draw = ImageDraw.Draw(robot_img)
 
 
-    draw.line((init_x,init_y, new_x,new_y), fill="blue", width=5)
-    draw.line((init_x,init_y, init_x, 0), fill="red", width=5)
-    robot_img.show()
+    #draw.line((init_x,init_y, new_x,new_y), fill="blue", width=5)
+    #draw.line((init_x,init_y, init_x, 0), fill="red", width=5)
+    #robot_img.show()
 
     degree = math.degrees(math.atan(abs(delta_x) / abs(delta_y)))
+
+    if(degree > 90):
+        degree -= 90
 
     if(init_x<new_x):
         if(init_y>new_y):
@@ -129,10 +134,10 @@ def show_robot_direction(img):
         if(init_y<new_y):
             degree += 90
 
-    print(degree)
+    return int(degree)
 
 #----------------------------------------------------
-def get_robot_coord():
+def get_robot_coord():                    #gets the robot's coordinates and returns it
     final_x_y = [0,0]
     while (True):
         first_x_y = give_robot_coordinate("http://192.168.0.36/1600x1200.jpg")
@@ -156,25 +161,53 @@ def get_robot_coord():
 
     return final_x_y
 # ----------------------------------------------------
-print("start code")
+def run_and_make_packet(packet):
+    revision_id = "0" + hex(1)[2:]
+    data_type = "0" + hex(5)[2:]
+    packet_length = hex(20)[2:]
+    degree = show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
+    x_and_y = get_robot_coord()
+    coord_x = x_and_y[0]
+    coord_y = x_and_y[1]
 
-#print(give_robot_coordinate("http://192.168.0.36/1600x1200.jpg"))
+    checksum_value = 0x100 - ((int(revision_id,16)+int(data_type,16)+int(packet_length,16)+int(hex(degree)[2:],16)+int(hex(coord_x)[2:],16)+int(hex(coord_y)[2:],16)) & 0x00ff)
+    #print("total hex: " + str(checksum_value))
+    checksum= hex(checksum_value)[2:]
+    #print("checksum: "+checksum)
 
-#get_robot_coord()
-#show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
+    packet += revision_id + data_type + packet_length
+    if(degree > 255):
+        packet += "0"
+    else:
+        packet += "00"
+    packet += hex(degree)[2:]
 
-#data_list = make_data_pool("/Users/kibumkim/Documents/esp32_cam_code/1600x1200.jpg", 0)
-#with open("rgb_values.txt", "w") as f:
-    #print(data_list, file=f)
-    #f.close()
+    if(coord_x > 255):
+        packet += "0"
+    else:
+        packet += "00"
+    packet += hex(coord_x)[2:]
 
+    if(coord_y > 255):
+        packet += "0"
+    else:
+        packet += "00"
+    packet += hex(coord_y)[2:]
 
-#============== Open COM port ==================
-def sendData(data):
+    packet += checksum
+    #print("packet: " + packet)
+    return packet
+# ----------------------------------------------------
+def sendData(data):         #sends data through the serial port to the robot. Encodes data in ASCII format
     #data += " "
     serialPort.write(data.encode())
 
+#============== Open COM port ==================
 global serialPort
+
+packet_data = ""
+packet_data += run_and_make_packet(packet_data)
+
 
 serialPort = serial.Serial(
     port="/dev/cu.usbserial-DN012CUI", baudrate=9600, bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE
@@ -183,6 +216,13 @@ serialString = ""  # Used to hold data coming over UART
 
 print("Open serial port")
 
+#print(give_robot_coordinate("http://192.168.0.36/1600x1200.jpg"))
+
+
+#data_list = make_data_pool("/Users/kibumkim/Documents/esp32_cam_code/1600x1200.jpg", 0)
+#with open("rgb_values.txt", "w") as f:
+    #print(data_list, file=f)
+    #f.close()
 while 1:
     #Wait until there is data waiting in the serial buffer
     if serialPort.in_waiting > 0:
@@ -194,7 +234,7 @@ while 1:
         try:
             cmd = serialString.decode("Ascii")
             if(cmd=="communication\r\n"):
-                sendData("010514001201F4025888")
+                sendData(packet_data)
 
             print(cmd)
         except:
