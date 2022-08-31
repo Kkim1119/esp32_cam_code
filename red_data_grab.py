@@ -107,6 +107,10 @@ def show_robot_direction(initial_x_y, new_x_y):              #compares the coord
 
     delta_x = new_x - init_x
     delta_y = new_y - init_y
+
+    if(delta_y == 0):
+        degree = 0
+        return int(degree)
     #robot_img = PIL.Image.open(img)  # Identifies and opens the image given during function call
     #px = robot_img.load()
 
@@ -191,6 +195,10 @@ def run_and_make_packet(packet,initial_x_y, new_x_y):
         packet += "00"
     packet += hex(coord_y)[2:]
 
+    if(int(checksum,16) < 16):
+        packet += "0"
+    elif(int(checksum,16)>255):
+        checksum = checksum[3:]
     packet += checksum
     #print("packet: " + packet)
     return packet
@@ -225,6 +233,9 @@ print("Open serial port")
 #with open("rgb_values.txt", "w") as f:
     #print(data_list, file=f)
     #f.close()
+old_x_y = [1,1]
+new_x_y = [0,0]
+
 while 1:
     #Wait until there is data waiting in the serial buffer
     if serialPort.in_waiting > 0:
@@ -247,22 +258,47 @@ while 1:
                     checksum_compare = hex(0x100 - ((int(revision_byte, 16) + int(dataType_byte, 16) + int(packetLength_byte, 16) + int((request_byte), 16)) & 0x00ff))[2:]
                     if(checksum_byte.capitalize() == checksum_compare.capitalize()):
                         print("correct data received")
-                        if(request_byte == "01"):
-                            initial_x_y = get_robot_coord()
-                            new_x_y = [0,0]
-                        elif(request_byte == "00"):
+                        if(request_byte == "01"):       #START_MOVE
                             new_x_y = get_robot_coord()
-                            show_robot_direction(initial_x_y,new_x_y)
-
-                        packet_sending_data += run_and_make_packet(packet_sending_data,initial_x_y, new_x_y)
+                            show_robot_direction(old_x_y, new_x_y)
+                        packet_sending_data += run_and_make_packet(packet_sending_data, old_x_y, new_x_y)
                         sendData(packet_sending_data)
+                        print("packet:"+ packet_sending_data)
+                        old_x_y = new_x_y
                     else:
                         print("incorrect data received!!")
-            elif(cmd.find("scan_data") != -1):
-                with open("map_data.txt", "a") as f:
-                    print(cmd, file=f)
-                    f.close()
 
+            elif(cmd.find("scan_data") != -1):
+                scan_checksum = cmd[(cmd.rfind(",")+1):]
+                scan_data_list = cmd[12:].split(",")
+                scan_data_sum = 0
+                for i in range(len(scan_data_list)):
+                    scan_data_sum += int(scan_data_list[i])
+
+                if((scan_data_sum & 0x0ff) == 0):
+                    print("SCAN_DATA_correct data received")
+                    with open("map_data.txt", "a") as f:
+                        print(cmd, file=f)
+                        f.close()
+                    sendData("010407F4")
+                else:
+                    print("SCAN_DATA_incorrect data received!!")
+
+            elif (cmd.find("move_data") != -1):
+                move_checksum = cmd[(cmd.rfind(",") + 1):]
+                move_data_list = cmd[12:].split(",")
+                move_data_sum = 0
+                for i in range(len(move_data_list)):
+                    move_data_sum += int(move_data_list[i])
+
+                if ((move_data_sum & 0x0ff) == 0):
+                    print("MOVE_DATA_correct data received")
+                    with open("map_data.txt", "a") as f:
+                        print(cmd, file=f)
+                        f.close()
+                    sendData("010707F1")
+                else:
+                    print("MOVE_DATA_incorrect data received!!")
             print(cmd)
         except:
             pass
