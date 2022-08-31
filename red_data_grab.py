@@ -204,7 +204,8 @@ def sendData(data):         #sends data through the serial port to the robot. En
 #MAIN ------------------------------------------------------------- MAIN
 #============== Open COM port ==================
 global serialPort
-
+with open("map_data.txt",'w') as f:
+    f.close()
 packet_sending_data = ""
 
 #packet_sending_data += run_and_make_packet(packet_sending_data)
@@ -257,6 +258,11 @@ while 1:
                         sendData(packet_sending_data)
                     else:
                         print("incorrect data received!!")
+            elif(cmd.find("scan_data") != -1):
+                with open("map_data.txt", "a") as f:
+                    print(cmd, file=f)
+                    f.close()
+
             print(cmd)
         except:
             pass
