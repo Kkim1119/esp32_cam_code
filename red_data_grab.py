@@ -99,10 +99,7 @@ def give_image_robot_coords(img):                 #For testing the direction lin
     #robot_img.convert("RGB")
     #robot_img.save("robot_location_1.jpg")
 #----------------------------------------------------
-def show_robot_direction(img):              #compares the coordinates of the robot before and after moving, returns degrees of rotation of robot(starting at initial position)
-    initial_x_y = give_image_robot_coords("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
-    new_x_y = give_image_robot_coords("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_1.jpeg")
-
+def show_robot_direction(initial_x_y, new_x_y):              #compares the coordinates of the robot before and after moving, returns degrees of rotation of robot(starting at initial position)
     init_x = initial_x_y[0]
     init_y = initial_x_y[1]
     new_x = new_x_y[0]
@@ -140,8 +137,8 @@ def show_robot_direction(img):              #compares the coordinates of the rob
 def get_robot_coord():                    #gets the robot's coordinates and returns it
     final_x_y = [0,0]
     while (True):
-        first_x_y = give_robot_coordinate("http://192.168.0.36/1600x1200.jpg")
-        second_x_y = give_robot_coordinate("http://192.168.0.36/1600x1200.jpg")
+        first_x_y = give_robot_coordinate("http://192.168.0.37/1600x1200.jpg")
+        second_x_y = give_robot_coordinate("http://192.168.0.37/1600x1200.jpg")
 
         delta_x = first_x_y[0] - second_x_y[0]
         delta_y = first_x_y[1] - second_x_y[1]
@@ -161,11 +158,11 @@ def get_robot_coord():                    #gets the robot's coordinates and retu
 
     return final_x_y
 # ----------------------------------------------------
-def run_and_make_packet(packet):
+def run_and_make_packet(packet,initial_x_y, new_x_y):
     revision_id = "0" + hex(1)[2:]
     data_type = "0" + hex(5)[2:]
     packet_length = hex(20)[2:]
-    degree = show_robot_direction("/Users/kibumkim/Documents/esp32_cam_code/1600x1200_direction_test_2.jpeg")
+    degree = show_robot_direction(initial_x_y, new_x_y)
     x_and_y = get_robot_coord()
     coord_x = x_and_y[0]
     coord_y = x_and_y[1]
@@ -202,11 +199,15 @@ def sendData(data):         #sends data through the serial port to the robot. En
     #data += " "
     serialPort.write(data.encode())
 
+# ----------------------------------------------------
+
+#MAIN ------------------------------------------------------------- MAIN
 #============== Open COM port ==================
 global serialPort
 
-packet_data = ""
-packet_data += run_and_make_packet(packet_data)
+packet_sending_data = ""
+
+#packet_sending_data += run_and_make_packet(packet_sending_data)
 
 
 serialPort = serial.Serial(
@@ -233,9 +234,29 @@ while 1:
         #Print the contents of the serial data
         try:
             cmd = serialString.decode("Ascii")
-            if(cmd=="communication\r\n"):
-                sendData(packet_data)
+            #if(cmd=="communication\r\n"):
+                #sendData(packet_data)
+            if(cmd[:2] == "01"):
+                revision_byte = cmd[:2]
+                dataType_byte = cmd[2:4]
+                packetLength_byte = cmd[4:6]
+                if(dataType_byte == "06"):
+                    request_byte = cmd[6:8]
+                    checksum_byte = cmd[8:10]
+                    checksum_compare = hex(0x100 - ((int(revision_byte, 16) + int(dataType_byte, 16) + int(packetLength_byte, 16) + int((request_byte), 16)) & 0x00ff))[2:]
+                    if(checksum_byte.capitalize() == checksum_compare.capitalize()):
+                        print("correct data received")
+                        if(request_byte == "01"):
+                            initial_x_y = get_robot_coord()
+                            new_x_y = [0,0]
+                        elif(request_byte == "00"):
+                            new_x_y = get_robot_coord()
+                            show_robot_direction(initial_x_y,new_x_y)
 
+                        packet_sending_data += run_and_make_packet(packet_sending_data,initial_x_y, new_x_y)
+                        sendData(packet_sending_data)
+                    else:
+                        print("incorrect data received!!")
             print(cmd)
         except:
             pass
